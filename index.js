@@ -1,10 +1,17 @@
 const SHA256 = require("crypto-js/sha256");
 
+class Transaction {
+    constructor(credit, debit, amount){
+        this.credit = credit;
+        this.debit = debit;
+        this.amount = amount;
+    }
+}
+
 class Block {
-  constructor(index, timestamp, data, previousHash) {
-    this.index = index;
+  constructor(timestamp, transactions, previousHash) {
     this.timestamp = timestamp;
-    this.data = data;
+    this.transactions = transactions;
     this.previousHash = previousHash;
     this.hash = this.calculateHash();
     this.nonce = 0;
@@ -15,12 +22,13 @@ class Block {
       this.index +
         this.previousHash +
         this.timestamp +
-        JSON.stringify(this.data) + 
+        JSON.stringify(this.transactions) + 
         this.nonce
     ).toString();
   }
 
-  mineBlock(difficulty){//4
+  //proof of work
+  mineBlock(difficulty){
       while(this.hash.substring(0, difficulty) !== Array(difficulty+1).join("0")){
         this.nonce ++;
         this.hash = this.calculateHash();
@@ -32,22 +40,55 @@ class Block {
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesisBlock()];
-    this.difficulty = 4;
+    this.difficulty = 2;
+    this.pendingTransactions = [];
+    this.miningReward = 100;
   }
 
   createGenesisBlock() {
       console.log('create gen block')
-    return new Block(0, "30/07/2021", "Genesis Block", "0");
+    return new Block("30/07/2021", "Genesis Block", "0");
   }
 
   getLatestBlock(){
     return this.chain[this.chain.length - 1];
   }
 
-  addBlock(newBlock){
-    newBlock.previousHash = this.getLatestBlock().hash;
-    newBlock.mineBlock(this.difficulty);
-    this.chain.push(newBlock);
+  minePendingTransactions(miningRewardAddress){
+      let block = new Block(Date.now(), this.pendingTransactions);
+      console.log('block:', block)
+      block.mineBlock(this.difficulty);
+      block.
+
+      console.log('prepush this.chain', this.chain)
+      this.chain.push(block);
+      console.log('this.chain', this.chain)
+      this.pendingTransactions = [
+          new Transaction(null, miningRewardAddress, this.miningReward)
+      ];
+  }
+
+  createTransaction(transaction){
+      this.pendingTransactions.push(transaction);
+      console.log('push 2 pending trans', this.pendingTransactions)
+  }
+
+  getBalanceOfAddress(address){
+      let balance = 0;
+
+      for(let block of this.chain){
+          for(let transaction of block.transactions){
+            if(transaction.credit === address){
+                console.log('-', transaction)
+                balance -= transaction.amount;
+            }
+            if(transaction.debit === address){
+                console.log('+', transaction)
+                balance += transaction.amount;
+            }
+          }
+      }
+      return balance;
   }
 
   isValid(){
@@ -66,21 +107,24 @@ class Blockchain {
   }
 }
 
-let newBlockChain = new Blockchain();
+let coin = new Blockchain();
+coin.createTransaction(new Transaction('ad1', 'ad2', 100));
+console.log('coin', coin)
+coin.createTransaction(new Transaction('ad2', 'ad1', 50));
+console.log('coin', coin)
 
-//add two block for demo
-console.log('mining block one')
-newBlockChain.addBlock(new Block(1, '31/07/2021', { amount:4 }));
-console.log('mining block two')
-newBlockChain.addBlock(new Block(2, '31/07/2021', { amount:5 }));
 
-console.log('is valid?', newBlockChain.isValid());
+console.log('\n starting miner')
+coin.minePendingTransactions('ad3');
 
-//block tempering
-newBlockChain.chain[1].data = {amount: 16 };
-newBlockChain.chain[1].calculateHash();
+console.log('\n Balance of ad3 is:', coin.getBalanceOfAddress('ad3'));
 
-//will be false
-console.log('is valid?', newBlockChain.isValid());
+console.log('\n starting miner')
+coin.minePendingTransactions('ad3');
 
-// console.log('json', JSON.stringify(newBlockChain, null, 4));
+//ad1 paid 100 to ad2 got 50 from ad2
+console.log('Balance of ad1 is:', coin.getBalanceOfAddress('ad1'));
+//ad2 got 100 from ad1 paid 50 to ad2
+console.log('Balance of ad2 is:', coin.getBalanceOfAddress('ad2'));
+//ad3 got its balance from mining reward
+console.log('Balance of ad3 is:', coin.getBalanceOfAddress('ad3'));
